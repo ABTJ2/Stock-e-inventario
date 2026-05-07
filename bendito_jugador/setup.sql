@@ -3,8 +3,10 @@
 -- Sistema de Stock y Control de Inventario
 -- =====================================================
 
--- Crear base de datos
-CREATE DATABASE IF NOT EXISTS bendito_jugador;
+CREATE DATABASE IF NOT EXISTS bendito_jugador
+    CHARACTER SET utf8mb4
+    COLLATE utf8mb4_unicode_ci;
+
 USE bendito_jugador;
 
 -- =====================================================
@@ -16,7 +18,7 @@ CREATE TABLE IF NOT EXISTS roles (
     descripcion VARCHAR(255),
     estado ENUM('activo', 'inactivo') DEFAULT 'activo',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =====================================================
 -- TABLA: usuarios
@@ -31,25 +33,79 @@ CREATE TABLE IF NOT EXISTS usuarios (
     primer_ingreso TINYINT(1) DEFAULT 1,
     fecha_ultimo_login DATETIME,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (id_rol) REFERENCES roles(id_rol)
-);
+    CONSTRAINT fk_usuarios_roles
+        FOREIGN KEY (id_rol) REFERENCES roles(id_rol)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =====================================================
+-- TABLAS SECUNDARIAS DE PRODUCTOS
+-- =====================================================
+CREATE TABLE IF NOT EXISTS categorias_producto (
+    id_categoria INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL UNIQUE,
+    descripcion VARCHAR(255),
+    estado TINYINT DEFAULT 1
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS marcas (
+    id_marca INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL UNIQUE,
+    estado TINYINT DEFAULT 1
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS unidades_medida (
+    id_unidad_medida INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL UNIQUE,
+    abreviatura VARCHAR(20),
+    estado TINYINT DEFAULT 1
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS estados_producto (
+    id_estado_producto INT AUTO_INCREMENT PRIMARY KEY,
+    nombre_estado VARCHAR(50) NOT NULL UNIQUE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS almacenes (
+    id_almacen INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL UNIQUE,
+    descripcion TEXT,
+    ubicacion VARCHAR(150),
+    estado TINYINT DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =====================================================
 -- TABLA: productos
+-- Incluye columnas de compatibilidad para modulos existentes:
+-- precio, stock_actual, categoria, unidad_medida y estado.
 -- =====================================================
 CREATE TABLE IF NOT EXISTS productos (
-    id_producto INT PRIMARY KEY AUTO_INCREMENT,
-    codigo VARCHAR(50) NOT NULL UNIQUE,
-    nombre VARCHAR(100) NOT NULL,
+    id_producto INT AUTO_INCREMENT PRIMARY KEY,
+    codigo VARCHAR(50) UNIQUE NOT NULL,
+    nombre VARCHAR(150) NOT NULL,
     descripcion TEXT,
+    precio_referencia DECIMAL(10,2) DEFAULT 0,
     precio DECIMAL(10,2) DEFAULT 0,
     stock_actual INT DEFAULT 0,
     stock_minimo INT DEFAULT 0,
-    categoria VARCHAR(50),
+    categoria VARCHAR(100),
     unidad_medida VARCHAR(20),
     estado ENUM('activo', 'inactivo') DEFAULT 'activo',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+    id_categoria INT NOT NULL,
+    id_marca INT NOT NULL,
+    id_unidad_medida INT NOT NULL,
+    id_estado_producto INT NOT NULL,
+    fecha_alta DATETIME DEFAULT CURRENT_TIMESTAMP,
+    fecha_actualizacion DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_productos_categoria
+        FOREIGN KEY (id_categoria) REFERENCES categorias_producto(id_categoria),
+    CONSTRAINT fk_productos_marca
+        FOREIGN KEY (id_marca) REFERENCES marcas(id_marca),
+    CONSTRAINT fk_productos_unidad
+        FOREIGN KEY (id_unidad_medida) REFERENCES unidades_medida(id_unidad_medida),
+    CONSTRAINT fk_productos_estado
+        FOREIGN KEY (id_estado_producto) REFERENCES estados_producto(id_estado_producto)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =====================================================
 -- TABLA: proveedores
@@ -64,19 +120,7 @@ CREATE TABLE IF NOT EXISTS proveedores (
     contacto VARCHAR(100),
     estado ENUM('activo', 'inactivo') DEFAULT 'activo',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- =====================================================
--- TABLA: almacenes
--- =====================================================
-CREATE TABLE IF NOT EXISTS almacenes (
-    id_almacen INT PRIMARY KEY AUTO_INCREMENT,
-    nombre VARCHAR(50) NOT NULL,
-    descripcion TEXT,
-    ubicacion VARCHAR(100),
-    estado ENUM('activo', 'inactivo') DEFAULT 'activo',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =====================================================
 -- TABLA: ingresos_mercaderia
@@ -90,9 +134,11 @@ CREATE TABLE IF NOT EXISTS ingresos_mercaderia (
     observaciones TEXT,
     estado ENUM('pendiente', 'confirmado', 'cancelado') DEFAULT 'pendiente',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (id_proveedor) REFERENCES proveedores(id_proveedor),
-    FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario)
-);
+    CONSTRAINT fk_ingresos_proveedor
+        FOREIGN KEY (id_proveedor) REFERENCES proveedores(id_proveedor),
+    CONSTRAINT fk_ingresos_usuario
+        FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =====================================================
 -- TABLA: detalle_ingreso
@@ -103,9 +149,11 @@ CREATE TABLE IF NOT EXISTS detalle_ingreso (
     id_producto INT NOT NULL,
     cantidad INT NOT NULL,
     precio_unitario DECIMAL(10,2) NOT NULL,
-    FOREIGN KEY (id_ingreso) REFERENCES ingresos_mercaderia(id_ingreso),
-    FOREIGN KEY (id_producto) REFERENCES productos(id_producto)
-);
+    CONSTRAINT fk_detalle_ingreso
+        FOREIGN KEY (id_ingreso) REFERENCES ingresos_mercaderia(id_ingreso),
+    CONSTRAINT fk_detalle_producto
+        FOREIGN KEY (id_producto) REFERENCES productos(id_producto)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =====================================================
 -- TABLA: movimientos_stock
@@ -121,9 +169,11 @@ CREATE TABLE IF NOT EXISTS movimientos_stock (
     motivo VARCHAR(255),
     referencia VARCHAR(100),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (id_producto) REFERENCES productos(id_producto),
-    FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario)
-);
+    CONSTRAINT fk_movimientos_producto
+        FOREIGN KEY (id_producto) REFERENCES productos(id_producto),
+    CONSTRAINT fk_movimientos_usuario
+        FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =====================================================
 -- TABLA: auditoria_inventario
@@ -137,9 +187,28 @@ CREATE TABLE IF NOT EXISTS auditoria_inventario (
     diferencia INT NOT NULL,
     observaciones TEXT,
     fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (id_producto) REFERENCES productos(id_producto),
-    FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario)
-);
+    CONSTRAINT fk_auditoria_producto
+        FOREIGN KEY (id_producto) REFERENCES productos(id_producto),
+    CONSTRAINT fk_auditoria_usuario
+        FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =====================================================
+-- TABLA: stock_por_almacen
+-- =====================================================
+CREATE TABLE IF NOT EXISTS stock_por_almacen (
+    id_stock INT AUTO_INCREMENT PRIMARY KEY,
+    id_producto INT NOT NULL,
+    id_almacen INT NOT NULL,
+    stock_actual INT DEFAULT 0,
+    stock_reservado INT DEFAULT 0,
+    fecha_actualizacion DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_producto_almacen (id_producto, id_almacen),
+    CONSTRAINT fk_stock_producto
+        FOREIGN KEY (id_producto) REFERENCES productos(id_producto),
+    CONSTRAINT fk_stock_almacen
+        FOREIGN KEY (id_almacen) REFERENCES almacenes(id_almacen)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =====================================================
 -- TABLA: traspasos
@@ -153,11 +222,15 @@ CREATE TABLE IF NOT EXISTS traspasos (
     id_usuario INT NOT NULL,
     estado ENUM('pendiente', 'confirmado', 'cancelado') DEFAULT 'pendiente',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (id_producto) REFERENCES productos(id_producto),
-    FOREIGN KEY (id_almacen_origen) REFERENCES almacenes(id_almacen),
-    FOREIGN KEY (id_almacen_destino) REFERENCES almacenes(id_almacen),
-    FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario)
-);
+    CONSTRAINT fk_traspasos_producto
+        FOREIGN KEY (id_producto) REFERENCES productos(id_producto),
+    CONSTRAINT fk_traspasos_origen
+        FOREIGN KEY (id_almacen_origen) REFERENCES almacenes(id_almacen),
+    CONSTRAINT fk_traspasos_destino
+        FOREIGN KEY (id_almacen_destino) REFERENCES almacenes(id_almacen),
+    CONSTRAINT fk_traspasos_usuario
+        FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =====================================================
 -- TABLA: ajustes_inventario
@@ -171,78 +244,101 @@ CREATE TABLE IF NOT EXISTS ajustes_inventario (
     motivo TEXT NOT NULL,
     estado ENUM('pendiente', 'aprobado', 'rechazado') DEFAULT 'pendiente',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (id_producto) REFERENCES productos(id_producto),
-    FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario)
-);
+    CONSTRAINT fk_ajustes_producto
+        FOREIGN KEY (id_producto) REFERENCES productos(id_producto),
+    CONSTRAINT fk_ajustes_usuario
+        FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =====================================================
--- DATOS INICIALES: ROLES
+-- DATOS INICIALES
 -- =====================================================
-INSERT INTO roles (nombre_rol, descripcion) VALUES
+INSERT IGNORE INTO roles (nombre_rol, descripcion) VALUES
 ('Administrador', 'Usuario con acceso total al sistema'),
-('Empleado', 'Usuario con acceso limitado a operaciones básicas'),
-('Supervisor Administrativo', 'Usuario con permisos de supervisión y reportes'),
-('Supervisor Auditor', 'Usuario con permisos de auditoría y control'),
-('Gerente Zonal', 'Usuario con permisos de gestión por zona');
+('Empleado', 'Usuario con acceso limitado a operaciones basicas'),
+('Supervisor Administrativo', 'Usuario con permisos de supervision y reportes'),
+('Supervisor Auditor', 'Usuario con permisos de auditoria y control'),
+('Gerente Zonal', 'Usuario con permisos de gestion por zona');
 
--- =====================================================
--- DATOS INICIALES: USUARIOS (contraseña: admin123)
--- =====================================================
-INSERT INTO usuarios (usuario, clave, nombre_completo, id_rol, primer_ingreso, estado) VALUES
+INSERT IGNORE INTO usuarios (usuario, clave, nombre_completo, id_rol, primer_ingreso, estado) VALUES
 ('admin', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Administrador Principal', 1, 0, 'activo'),
 ('supervisor', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Supervisor de Stock', 3, 1, 'activo'),
-('operario', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Operario de склад', 2, 1, 'activo');
+('operario', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Operario de Stock', 2, 1, 'activo');
 
--- =====================================================
--- DATOS INICIALES: ALMACENES
--- =====================================================
-INSERT INTO almacenes (nombre, descripcion, ubicacion) VALUES
-('Principal', 'Almacén principal de la empresa', 'Zona Centro'),
-('Secundario', 'Almacén secundario', 'Zona Sur'),
-('Exhibición', 'Salón de ventas y exhibición', 'Zona Norte');
+INSERT IGNORE INTO categorias_producto (nombre, descripcion, estado) VALUES
+('Indumentaria', 'Ropa deportiva', 1),
+('Calzado', 'Botines y calzado deportivo', 1),
+('Accesorios', 'Complementos deportivos', 1),
+('Deportes', 'Articulos para practica deportiva', 1),
+('Kits', 'Combos y conjuntos', 1);
 
--- =====================================================
--- DATOS INICIALES: PRODUCTOS
--- =====================================================
-INSERT INTO productos (codigo, nombre, descripcion, precio, stock_actual, stock_minimo, categoria, unidad_medida) VALUES
-('PROD001', 'Camiseta Bendito Jugador', 'Camiseta oficial edición limitada', 2500.00, 50, 10, 'Indumentaria', 'unidad'),
-('PROD002', 'Short Deportivo', 'Short deportivo profesional', 1800.00, 30, 5, 'Indumentaria', 'unidad'),
-('PROD003', 'Pelota de Fútbol', 'Pelota profesional de match', 3200.00, 100, 20, 'Deportes', 'unidad'),
-('PROD004', 'Medias Profesionales', 'Medias de fútbol con refuerzo', 850.00, 80, 15, 'Accesorios', 'par'),
-('PROD005', 'Canilleras', 'Canilleras protectoras', 1200.00, 40, 10, 'Accesorios', 'unidad'),
-('PROD006', 'Guantes de Arquero', 'Guantes profesionales', 4500.00, 15, 5, 'Deportes', 'unidad'),
-('PROD007', 'Bolso Deportivo', 'Bolso grande con compartimentos', 5500.00, 25, 5, 'Accesorios', 'unidad'),
-('PROD008', 'Botines Elite', 'Botines de alta gama', 8500.00, 20, 5, 'Calzado', 'unidad'),
-('PROD009', 'Rompevientos', 'Rompevientos impermeable', 4200.00, 18, 5, 'Indumentaria', 'unidad'),
-('PROD010', 'Kit Entrenamiento', 'Conjunto completo entrenamiento', 6800.00, 12, 3, 'Kits', 'unidad');
+INSERT IGNORE INTO marcas (nombre, estado) VALUES
+('Bendito Jugador', 1),
+('Adidas', 1),
+('Nike', 1),
+('Penalty', 1),
+('Topper', 1);
 
--- =====================================================
--- DATOS INICIALES: PROVEEDORES
--- =====================================================
-INSERT INTO proveedores (cuit, razon_social, telefono, email, direccion, contacto) VALUES
-('20-12345678-5', 'Deportes Argentina S.A.', '011-4567-8901', 'ventas@deportesarg.com', 'Av. Corrientes 1234, CABA', 'Juan Pérez'),
-('27-87654321-0', 'Indumentaria Norte S.R.L.', '011-4789-0123', 'info@indnorte.com', 'Av. Rivadavia 5678, CABA', 'María González'),
-('30-11223344-5', 'Sport World Import', '011-3456-7890', 'contacto@sportworld.com', 'Av. Santa Fe 2345, CABA', 'Carlos López');
+INSERT IGNORE INTO unidades_medida (nombre, abreviatura, estado) VALUES
+('Unidad', 'Unid.', 1),
+('Par', 'Par', 1),
+('Caja', 'Caja', 1),
+('Pack', 'Pack', 1);
 
--- =====================================================
--- TABLA: stock_por_almacen (por producto por almacén)
--- =====================================================
-CREATE TABLE IF NOT EXISTS stock_por_almacen (
-    id_stock INT PRIMARY KEY AUTO_INCREMENT,
-    id_producto INT NOT NULL,
-    id_almacen INT NOT NULL,
-    stock_actual INT DEFAULT 0,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (id_producto) REFERENCES productos(id_producto),
-    FOREIGN KEY (id_almacen) REFERENCES almacenes(id_almacen)
-);
+INSERT IGNORE INTO estados_producto (nombre_estado) VALUES
+('Activo'),
+('Inactivo'),
+('Discontinuado');
 
--- POBLAR STOCK POR ALMACÉN: asignar stock actual al almacén Principal (id_almacen = 1)
-INSERT INTO stock_por_almacen (id_producto, id_almacen, stock_actual)
-SELECT id_producto, 1, stock_actual FROM productos;
+INSERT IGNORE INTO almacenes (nombre, descripcion, ubicacion, estado) VALUES
+('Almacen Central', 'Deposito principal', 'Deposito principal', 1),
+('Deposito Norte', 'Sucursal norte', 'Sucursal norte', 1),
+('Deposito Sur', 'Sucursal sur', 'Sucursal sur', 1);
 
--- Mantener consistencia global en productos a partir del stock por almacén
+INSERT IGNORE INTO proveedores (cuit, razon_social, telefono, email, direccion, contacto) VALUES
+('20-12345678-5', 'Deportes Argentina S.A.', '011-4567-8901', 'ventas@deportesarg.com', 'Av. Corrientes 1234, CABA', 'Juan Perez'),
+('27-87654321-0', 'Indumentaria Norte S.R.L.', '011-4789-0123', 'info@indnorte.com', 'Av. Rivadavia 5678, CABA', 'Maria Gonzalez'),
+('30-11223344-5', 'Sport World Import', '011-3456-7890', 'contacto@sportworld.com', 'Av. Santa Fe 2345, CABA', 'Carlos Lopez');
+
+INSERT IGNORE INTO productos (
+    codigo, nombre, descripcion, precio_referencia, precio, stock_actual, stock_minimo,
+    categoria, unidad_medida, estado, id_categoria, id_marca, id_unidad_medida, id_estado_producto
+) VALUES
+('PROD001', 'Camiseta Bendito Jugador', 'Camiseta oficial edicion limitada', 2500.00, 2500.00, 50, 10, 'Indumentaria', 'Unid.', 'activo',
+    (SELECT id_categoria FROM categorias_producto WHERE nombre = 'Indumentaria'),
+    (SELECT id_marca FROM marcas WHERE nombre = 'Bendito Jugador'),
+    (SELECT id_unidad_medida FROM unidades_medida WHERE nombre = 'Unidad'),
+    (SELECT id_estado_producto FROM estados_producto WHERE nombre_estado = 'Activo')),
+('PROD002', 'Short Deportivo', 'Short deportivo profesional', 1800.00, 1800.00, 30, 5, 'Indumentaria', 'Unid.', 'activo',
+    (SELECT id_categoria FROM categorias_producto WHERE nombre = 'Indumentaria'),
+    (SELECT id_marca FROM marcas WHERE nombre = 'Bendito Jugador'),
+    (SELECT id_unidad_medida FROM unidades_medida WHERE nombre = 'Unidad'),
+    (SELECT id_estado_producto FROM estados_producto WHERE nombre_estado = 'Activo')),
+('PROD003', 'Pelota de Futbol', 'Pelota profesional de match', 3200.00, 3200.00, 100, 20, 'Deportes', 'Unid.', 'activo',
+    (SELECT id_categoria FROM categorias_producto WHERE nombre = 'Deportes'),
+    (SELECT id_marca FROM marcas WHERE nombre = 'Penalty'),
+    (SELECT id_unidad_medida FROM unidades_medida WHERE nombre = 'Unidad'),
+    (SELECT id_estado_producto FROM estados_producto WHERE nombre_estado = 'Activo')),
+('PROD004', 'Medias Profesionales', 'Medias de futbol con refuerzo', 850.00, 850.00, 80, 15, 'Accesorios', 'Par', 'activo',
+    (SELECT id_categoria FROM categorias_producto WHERE nombre = 'Accesorios'),
+    (SELECT id_marca FROM marcas WHERE nombre = 'Bendito Jugador'),
+    (SELECT id_unidad_medida FROM unidades_medida WHERE nombre = 'Par'),
+    (SELECT id_estado_producto FROM estados_producto WHERE nombre_estado = 'Activo')),
+('PROD005', 'Canilleras', 'Canilleras protectoras', 1200.00, 1200.00, 40, 10, 'Accesorios', 'Unid.', 'activo',
+    (SELECT id_categoria FROM categorias_producto WHERE nombre = 'Accesorios'),
+    (SELECT id_marca FROM marcas WHERE nombre = 'Topper'),
+    (SELECT id_unidad_medida FROM unidades_medida WHERE nombre = 'Unidad'),
+    (SELECT id_estado_producto FROM estados_producto WHERE nombre_estado = 'Activo'));
+
+INSERT IGNORE INTO stock_por_almacen (id_producto, id_almacen, stock_actual, stock_reservado)
+SELECT p.id_producto, a.id_almacen, p.stock_actual, 0
+FROM productos p
+CROSS JOIN almacenes a
+WHERE a.nombre = 'Almacen Central';
+
 UPDATE productos p
 SET p.stock_actual = (
-    SELECT COALESCE(SUM(s.stock_actual),0) FROM stock_por_almacen s WHERE s.id_producto = p.id_producto
+    SELECT COALESCE(SUM(s.stock_actual), 0)
+    FROM stock_por_almacen s
+    WHERE s.id_producto = p.id_producto
 );

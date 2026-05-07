@@ -9,7 +9,7 @@ $breadcrumb = 'Traspasos entre Almacenes';
 $breadcrumb_link = app_url('dashboard.php');
 
 $almacenes = [];
-try { $almacenes = db()->query("SELECT * FROM almacenes WHERE estado = 'activo'")->fetchAll(); } catch (Exception $e) {}
+try { $almacenes = db()->query("SELECT * FROM almacenes WHERE estado = 1 OR estado = 'activo'")->fetchAll(); } catch (Exception $e) {}
 
 $productos = [];
 try { $productos = db()->query("SELECT * FROM productos WHERE estado = 'activo' ORDER BY nombre")->fetchAll(); } catch (Exception $e) {}
