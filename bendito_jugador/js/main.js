@@ -26,11 +26,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
 
-            if (parent.dataset.fixedOpen === 'true') {
-                parent.classList.add('open');
-                return;
-            }
-
             parent.classList.toggle('open');
         });
     });

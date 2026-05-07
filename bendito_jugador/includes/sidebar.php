@@ -47,7 +47,7 @@ $stockItems = [
     </div>
 
     <nav class="sidebar-menu">
-        <div class="module-item open <?= $modulo_activo === 'stock' ? 'active' : ''; ?>" data-fixed-open="true">
+        <div class="module-item <?= $modulo_activo === 'stock' ? 'active' : ''; ?> <?= $submodulo_activo !== '' ? 'open' : ''; ?>">
             <a class="module-header" href="javascript:void(0);">
                 <i class="fas fa-boxes module-icon"></i>
                 <span class="module-title">Stock y Control de Inventario</span>
