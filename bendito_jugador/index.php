@@ -6,6 +6,8 @@ require_once __DIR__ . '/includes/bootstrap.php';
 require_guest();
 
 $error = '';
+$debugMessages = [];
+$loginDebug = APP_DEBUG && (($_GET['debug_login'] ?? '') === '1');
 
 if (request_method_is('POST')) {
     $username = post_string('usuario', 50);
@@ -17,19 +19,57 @@ if (request_method_is('POST')) {
         try {
             $user = find_user_for_login($username);
 
-            if ($user === null || $user['estado'] !== 'activo' || !password_verify($password, $user['clave'])) {
-                audit_event('login_failed', 'auth', $user !== null ? (int) $user['id_usuario'] : null, 'Intento fallido para usuario: ' . $username);
-                $error = 'Las credenciales ingresadas no son válidas.';
-            } else {
-                login_user($user);
-
-                if ((int) $user['primer_ingreso'] === 1) {
-                    redirect(app_url('primer_ingreso.php'));
+            if ($user === null) {
+                if ($loginDebug) {
+                    $debugMessages[] = 'Usuario no existe: no se encontro un registro en usuarios para "' . $username . '".';
                 }
 
-                redirect(app_url('dashboard.php'));
+                audit_event('login_failed', 'auth', null, 'Intento fallido para usuario: ' . $username);
+                $error = 'Las credenciales ingresadas no son válidas.';
+            } else {
+                $isActive = strcasecmp(trim((string) $user['estado']), 'activo') === 0;
+                $passwordOk = password_verify($password, (string) $user['clave']);
+                $roleExists = !empty($user['nombre_rol']);
+
+                if ($loginDebug) {
+                    $debugMessages[] = 'Usuario encontrado: id_usuario ' . (int) $user['id_usuario'] . '.';
+                    $debugMessages[] = $isActive
+                        ? 'Estado OK: activo.'
+                        : 'Estado invalido: se esperaba activo y la base tiene "' . (string) $user['estado'] . '".';
+                    $debugMessages[] = $passwordOk
+                        ? 'password_verify OK: la clave ingresada coincide con el hash guardado.'
+                        : 'password_verify FALSE: la clave ingresada no coincide con el hash guardado.';
+                    $debugMessages[] = $roleExists
+                        ? 'Rol OK: ' . (string) $user['nombre_rol'] . '.'
+                        : 'Rol no encontrado: el usuario existe, pero no hay coincidencia en roles para id_rol ' . (int) $user['id_rol'] . '.';
+                }
+
+                if (!$isActive || !$passwordOk) {
+                    audit_event('login_failed', 'auth', (int) $user['id_usuario'], 'Intento fallido para usuario: ' . $username);
+                    $error = 'Las credenciales ingresadas no son válidas.';
+                } elseif ($loginDebug) {
+                    $error = 'Modo debug: la validacion fue correcta. Quita ?debug_login=1 para iniciar sesion.';
+                } else {
+                    login_user($user);
+
+                    if ((int) $user['primer_ingreso'] === 1) {
+                        redirect(app_url('primer_ingreso.php'));
+                    }
+
+                    redirect(app_url('dashboard.php'));
+                }
             }
         } catch (Throwable $exception) {
+            if ($loginDebug) {
+                $debugMessages[] = 'Error de conexion o consulta: ' . $exception->getMessage();
+            }
+
+            try {
+                audit_event('login_failed', 'auth', isset($user) && $user !== null ? (int) $user['id_usuario'] : null, 'Intento fallido para usuario: ' . $username);
+            } catch (Throwable) {
+                // Keep the original database error visible in debug mode.
+            }
+
             $error = 'No fue posible validar el acceso. Revisá la base de datos y la configuración del servidor.';
         }
     }
@@ -85,6 +125,13 @@ if (request_method_is('POST')) {
                     <div class="alert alert-danger app-alert" role="alert">
                         <i class="fa-solid fa-circle-exclamation"></i>
                         <span><?= e($error); ?></span>
+                    </div>
+                <?php endif; ?>
+
+                <?php if ($loginDebug && $debugMessages !== []): ?>
+                    <div class="alert alert-warning app-alert" role="alert">
+                        <i class="fa-solid fa-bug"></i>
+                        <span><?= e(implode(' ', $debugMessages)); ?></span>
                     </div>
                 <?php endif; ?>
 

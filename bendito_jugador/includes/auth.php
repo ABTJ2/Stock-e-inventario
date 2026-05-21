@@ -23,7 +23,7 @@ if (!function_exists('find_user_for_login')) {
             'SELECT u.id_usuario, u.usuario, u.clave, u.nombre_completo, u.id_rol, u.primer_ingreso, u.estado,
                     r.nombre_rol
              FROM usuarios u
-             INNER JOIN roles r ON r.id_rol = u.id_rol
+             LEFT JOIN roles r ON r.id_rol = u.id_rol
              WHERE u.usuario = :usuario
              LIMIT 1'
         );
