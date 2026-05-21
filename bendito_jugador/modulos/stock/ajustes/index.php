@@ -8,73 +8,152 @@ $submodulo_activo = 'ajustes';
 $breadcrumb = 'Ajuste de Inventario';
 $breadcrumb_link = app_url('dashboard.php');
 
+$db = db();
 $error = '';
 $success = '';
+$userId = (int) (current_user()['id'] ?? 0);
 
 $productos = [];
+$almacenes = [];
+$stockPorAlmacen = [];
+$ajustes = [];
+
 try {
-    $stmt = db()->query("SELECT * FROM productos WHERE estado = 'activo' ORDER BY nombre");
-    $productos = $stmt->fetchAll();
-} catch (Exception $e) {}
+    $productos = $db->query("SELECT id_producto, codigo, nombre FROM productos WHERE estado = 'activo' ORDER BY nombre")->fetchAll();
+    $almacenes = $db->query('SELECT id_almacen, nombre FROM almacenes WHERE estado = 1 ORDER BY nombre')->fetchAll();
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'crear') {
-    $id_producto = intval($_POST['id_producto'] ?? 0);
-    $stock_nuevo = intval($_POST['stock_nuevo'] ?? 0);
-    $motivo = $_POST['motivo'] ?? '';
-    
-    if ($id_producto > 0 && !empty($motivo)) {
-        try {
-            db()->beginTransaction();
-            
-            $stmt = db()->prepare("SELECT stock_actual FROM productos WHERE id_producto = ?");
-            $stmt->execute([$id_producto]);
-            $producto = $stmt->fetch();
-            $stock_anterior = $producto['stock_actual'];
-            
-            $stmt = db()->prepare("INSERT INTO ajustes_inventario (id_producto, id_usuario, stock_anterior, stock_nuevo, motivo, estado) VALUES (?, ?, ?, ?, ?, 'aprobado')");
-            $stmt->execute([$id_producto, current_user()['id'], $stock_anterior, $stock_nuevo, $motivo]);
-            
-            $stmt = db()->prepare("UPDATE productos SET stock_actual = ? WHERE id_producto = ?");
-            $stmt->execute([$stock_nuevo, $id_producto]);
-            
-            // Actualizar stock por almacén (asume almacén principal = 1)
-            $stmt = db()->prepare("SELECT stock_actual FROM stock_por_almacen WHERE id_producto = ? AND id_almacen = 1");
-            $stmt->execute([$id_producto]);
-            $sa = $stmt->fetch();
-            if ($sa) {
-                $stock_alm_anterior = intval($sa['stock_actual']);
-                $stock_alm_nuevo = $stock_nuevo; // reflejar nuevo stock en almacén principal
-                $stmt = db()->prepare("UPDATE stock_por_almacen SET stock_actual = ? WHERE id_producto = ? AND id_almacen = 1");
-                $stmt->execute([$stock_alm_nuevo, $id_producto]);
-            } else {
-                $stock_alm_anterior = 0;
-                $stock_alm_nuevo = $stock_nuevo;
-                $stmt = db()->prepare("INSERT INTO stock_por_almacen (id_producto, id_almacen, stock_actual) VALUES (?, 1, ?)");
-                $stmt->execute([$id_producto, $stock_alm_nuevo]);
-            }
+    $stmt = $db->query('SELECT id_almacen, id_producto, stock_actual FROM stock_por_almacen');
+    foreach ($stmt->fetchAll() as $row) {
+        $stockPorAlmacen[(int) $row['id_almacen']][(int) $row['id_producto']] = (int) $row['stock_actual'];
+    }
+} catch (Throwable $exception) {
+    $error = 'No se pudieron cargar los datos iniciales.';
+}
 
-            // Registrar movimiento de ajuste
-            $tipo = $stock_nuevo >= $stock_anterior ? 'ajuste_positivo' : 'ajuste_negativo';
-            $stmt = db()->prepare("INSERT INTO movimientos_stock (id_producto, id_usuario, tipo_movimiento, cantidad, stock_anterior, stock_nuevo, motivo, referencia) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-            $cantidad_mov = abs($stock_nuevo - $stock_anterior);
-            $referencia = 'ajuste:' . db()->lastInsertId();
-            $stmt->execute([$id_producto, current_user()['id'], $tipo, $cantidad_mov, $stock_anterior, $stock_nuevo, $motivo, $referencia]);
-            
-            db()->commit();
-            $success = 'Ajuste de inventario realizado correctamente.';
-        } catch (Exception $e) {
-            db()->rollBack();
-            $error = 'Error al realizar ajuste: ' . $e->getMessage();
+if (request_method_is('POST') && ($_POST['action'] ?? '') === 'crear') {
+    $idAlmacen = (int) ($_POST['id_almacen'] ?? 0);
+    $idProducto = (int) ($_POST['id_producto'] ?? 0);
+    $stockFisico = (int) ($_POST['stock_fisico'] ?? -1);
+    $motivo = trim((string) ($_POST['motivo'] ?? ''));
+
+    try {
+        if ($userId <= 0) {
+            throw new RuntimeException('No se encontró el usuario logueado.');
         }
-    } else {
-        $error = 'Todos los campos son obligatorios.';
+
+        if ($idAlmacen <= 0 || $idProducto <= 0 || $stockFisico < 0 || $motivo === '') {
+            throw new RuntimeException('Seleccione almacén, producto, stock físico válido y motivo.');
+        }
+
+        $db->beginTransaction();
+
+        $stmt = $db->prepare('SELECT id_almacen FROM almacenes WHERE id_almacen = ? AND estado = 1 FOR UPDATE');
+        $stmt->execute([$idAlmacen]);
+        if (!$stmt->fetch()) {
+            throw new RuntimeException('Almacén inválido o inactivo.');
+        }
+
+        $stmt = $db->prepare("SELECT id_producto FROM productos WHERE id_producto = ? AND estado = 'activo' FOR UPDATE");
+        $stmt->execute([$idProducto]);
+        if (!$stmt->fetch()) {
+            throw new RuntimeException('Producto inválido o inactivo.');
+        }
+
+        $stmt = $db->prepare(
+            'SELECT stock_actual
+             FROM stock_por_almacen
+             WHERE id_producto = ? AND id_almacen = ?
+             FOR UPDATE'
+        );
+        $stmt->execute([$idProducto, $idAlmacen]);
+        $stockRow = $stmt->fetch();
+        $stockSistema = (int) ($stockRow['stock_actual'] ?? 0);
+        $diferencia = $stockFisico - $stockSistema;
+
+        $stmt = $db->prepare(
+            "INSERT INTO ajustes_inventario (id_producto, id_usuario, id_almacen, stock_anterior, stock_nuevo, diferencia, motivo, estado)
+             VALUES (?, ?, ?, ?, ?, ?, ?, 'aprobado')"
+        );
+        $stmt->execute([$idProducto, $userId, $idAlmacen, $stockSistema, $stockFisico, $diferencia, $motivo]);
+        $idAjuste = (int) $db->lastInsertId();
+
+        if ($stockRow) {
+            $stmt = $db->prepare('UPDATE stock_por_almacen SET stock_actual = ? WHERE id_producto = ? AND id_almacen = ?');
+            $stmt->execute([$stockFisico, $idProducto, $idAlmacen]);
+        } else {
+            $stmt = $db->prepare('INSERT INTO stock_por_almacen (id_producto, id_almacen, stock_actual, stock_reservado) VALUES (?, ?, ?, 0)');
+            $stmt->execute([$idProducto, $idAlmacen, $stockFisico]);
+        }
+
+        $stmt = $db->prepare(
+            'UPDATE productos
+             SET stock_actual = (SELECT COALESCE(SUM(s.stock_actual), 0) FROM stock_por_almacen s WHERE s.id_producto = ?)
+             WHERE id_producto = ?'
+        );
+        $stmt->execute([$idProducto, $idProducto]);
+
+        $tipoMovimiento = $diferencia < 0 ? 'ajuste_negativo' : 'ajuste_positivo';
+        $stmt = $db->prepare(
+            'INSERT INTO movimientos_stock
+                (id_producto, id_usuario, id_almacen, tipo_movimiento, cantidad, stock_anterior, stock_nuevo, motivo, referencia, entidad_origen, id_entidad_origen)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        );
+        $stmt->execute([
+            $idProducto,
+            $userId,
+            $idAlmacen,
+            $tipoMovimiento,
+            abs($diferencia),
+            $stockSistema,
+            $stockFisico,
+            $motivo,
+            'ajuste:' . $idAjuste,
+            'ajuste',
+            $idAjuste,
+        ]);
+
+        $stmt = $db->prepare(
+            'INSERT INTO auditoria_inventario (id_producto, id_almacen, id_usuario, stock_sistema, stock_real, diferencia, observaciones)
+             VALUES (?, ?, ?, ?, ?, ?, ?)'
+        );
+        $stmt->execute([$idProducto, $idAlmacen, $userId, $stockSistema, $stockFisico, $diferencia, $motivo]);
+
+        audit_event('ajuste_inventario', 'stock', $userId, 'Ajuste #' . $idAjuste . ' registrado.');
+        $db->commit();
+        $success = 'Ajuste de inventario registrado correctamente.';
+    } catch (Throwable $exception) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        $error = $exception->getMessage();
     }
 }
 
-$ajustes = [];
-try { 
-    $ajustes = db()->query("SELECT a.*, p.nombre as producto, u.nombre_completo FROM ajustes_inventario a JOIN productos p ON a.id_producto = p.id_producto JOIN usuarios u ON a.id_usuario = u.id_usuario ORDER BY a.created_at DESC LIMIT 20")->fetchAll(); 
-} catch (Exception $e) {}
+try {
+    $ajustes = $db->query(
+        "SELECT aj.id_ajuste,
+                aj.created_at,
+                aj.stock_anterior,
+                aj.stock_nuevo,
+                aj.diferencia,
+                aj.motivo,
+                aj.estado,
+                p.codigo,
+                p.nombre AS producto,
+                al.nombre AS almacen_nombre,
+                u.nombre_completo
+         FROM ajustes_inventario aj
+         INNER JOIN productos p ON p.id_producto = aj.id_producto
+         LEFT JOIN almacenes al ON al.id_almacen = aj.id_almacen
+         INNER JOIN usuarios u ON u.id_usuario = aj.id_usuario
+         ORDER BY aj.created_at DESC, aj.id_ajuste DESC
+         LIMIT 20"
+    )->fetchAll();
+} catch (Throwable $exception) {
+    if ($error === '') {
+        $error = 'No se pudo cargar el listado de ajustes.';
+    }
+}
 ?>
 
 <!DOCTYPE html>
@@ -98,34 +177,33 @@ try {
                         <i class="fas fa-plus me-2"></i>Nuevo Ajuste
                     </button>
                 </div>
-                
-                <?php if (!empty($error)): ?><div class="alert alert-danger"><i class="fas fa-exclamation-circle"></i><?= e($error); ?></div><?php endif; ?>
-                <?php if (!empty($success)): ?><div class="alert alert-success"><i class="fas fa-check-circle"></i><?= e($success); ?></div><?php endif; ?>
-                
+
+                <?php if ($error !== ''): ?><div class="alert alert-danger"><i class="fas fa-exclamation-circle me-2"></i><?= e($error); ?></div><?php endif; ?>
+                <?php if ($success !== ''): ?><div class="alert alert-success"><i class="fas fa-check-circle me-2"></i><?= e($success); ?></div><?php endif; ?>
+
                 <div class="table-container">
-                    <table class="table">
+                    <table class="table align-middle">
                         <thead>
-                            <tr><th>ID</th><th>Fecha</th><th>Producto</th><th>Stock Anterior</th><th>Stock Nuevo</th><th>Diferencia</th><th>Motivo</th><th>Usuario</th><th>Estado</th></tr>
+                            <tr><th>ID</th><th>Fecha</th><th>Producto</th><th>Almacén</th><th>Sistema</th><th>Físico</th><th>Diferencia</th><th>Motivo</th><th>Usuario</th><th>Estado</th></tr>
                         </thead>
                         <tbody>
-                            <?php foreach ($ajustes as $a): ?>
-                            <tr>
-                                <td><?= $a['id_ajuste']; ?></td>
-                                <td><?= date('d/m/Y', strtotime($a['created_at'])); ?></td>
-                                <td><?= e($a['producto']); ?></td>
-                                <td><?= $a['stock_anterior']; ?></td>
-                                <td><strong><?= $a['stock_nuevo']; ?></strong></td>
-                                <td>
-                                    <?php $diff = $a['stock_nuevo'] - $a['stock_anterior']; ?>
-                                    <span class="badge bg-<?= $diff >= 0 ? 'success' : 'danger'; ?>"><?= ($diff >= 0 ? '+' : '') . $diff; ?></span>
-                                </td>
-                                <td><?= e($a['motivo']); ?></td>
-                                <td><?= e($a['nombre_completo']); ?></td>
-                                <td><span class="badge bg-success"><?= $a['estado']; ?></span></td>
-                            </tr>
+                            <?php foreach ($ajustes as $ajuste): ?>
+                                <?php $diferencia = (int) $ajuste['diferencia']; ?>
+                                <tr>
+                                    <td><?= (int) $ajuste['id_ajuste']; ?></td>
+                                    <td><?= e(date('d/m/Y H:i', strtotime((string) $ajuste['created_at']))); ?></td>
+                                    <td><?= e($ajuste['codigo'] . ' - ' . $ajuste['producto']); ?></td>
+                                    <td><?= e($ajuste['almacen_nombre'] ?? '-'); ?></td>
+                                    <td><?= (int) $ajuste['stock_anterior']; ?></td>
+                                    <td><strong><?= (int) $ajuste['stock_nuevo']; ?></strong></td>
+                                    <td><span class="badge bg-<?= $diferencia < 0 ? 'danger' : 'success'; ?>"><?= ($diferencia > 0 ? '+' : '') . $diferencia; ?></span></td>
+                                    <td><?= e($ajuste['motivo']); ?></td>
+                                    <td><?= e($ajuste['nombre_completo']); ?></td>
+                                    <td><span class="badge bg-success"><?= e($ajuste['estado']); ?></span></td>
+                                </tr>
                             <?php endforeach; ?>
-                            <?php if (empty($ajustes)): ?>
-                            <tr><td colspan="9" class="text-center text-muted">No hay ajustes registrados.</td></tr>
+                            <?php if (!$ajustes): ?>
+                                <tr><td colspan="10" class="text-center text-muted">No hay ajustes registrados.</td></tr>
                             <?php endif; ?>
                         </tbody>
                     </table>
@@ -141,33 +219,49 @@ try {
                     <h5 class="modal-title">Nuevo Ajuste de Inventario</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <form method="POST">
+                <form method="POST" onsubmit="return validarAjuste()">
                     <div class="modal-body">
                         <input type="hidden" name="action" value="crear">
-                        
+
                         <div class="form-group">
-                            <label class="form-label">Producto *</label>
-                            <select name="id_producto" class="form-control" id="productoSelect" required onchange="mostrarStockActual()">
+                            <label class="form-label">Almacén *</label>
+                            <select name="id_almacen" class="form-control" id="almacenSelect" required onchange="actualizarStockActual()">
                                 <option value="">Seleccionar...</option>
-                                <?php foreach ($productos as $p): ?>
-                                <option value="<?= $p['id_producto']; ?>" data-stock="<?= $p['stock_actual']; ?>"><?= e($p['codigo'] . ' - ' . $p['nombre']); ?></option>
+                                <?php foreach ($almacenes as $almacen): ?>
+                                    <option value="<?= (int) $almacen['id_almacen']; ?>"><?= e($almacen['nombre']); ?></option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
-                        
+
                         <div class="form-group">
-                            <label class="form-label">Stock Actual</label>
-                            <input type="text" id="stockActual" class="form-control" readonly>
+                            <label class="form-label">Producto *</label>
+                            <select name="id_producto" class="form-control" id="productoSelect" required onchange="actualizarStockActual()">
+                                <option value="">Seleccionar...</option>
+                                <?php foreach ($productos as $producto): ?>
+                                    <option value="<?= (int) $producto['id_producto']; ?>"><?= e($producto['codigo'] . ' - ' . $producto['nombre']); ?></option>
+                                <?php endforeach; ?>
+                            </select>
                         </div>
-                        
-                        <div class="form-group">
-                            <label class="form-label">Nuevo Stock *</label>
-                            <input type="number" name="stock_nuevo" class="form-control" required min="0">
+
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Stock sistema</label>
+                                <input type="text" id="stockActual" class="form-control" readonly value="0">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Stock físico contado *</label>
+                                <input type="number" name="stock_fisico" id="stockFisico" class="form-control" required min="0" step="1" oninput="calcularDiferencia()">
+                            </div>
                         </div>
-                        
+
+                        <div class="form-group mt-3">
+                            <label class="form-label">Diferencia</label>
+                            <input type="text" id="diferencia" class="form-control" readonly value="0">
+                        </div>
+
                         <div class="form-group">
-                            <label class="form-label">Motivo del Ajuste *</label>
-                            <textarea name="motivo" class="form-control" rows="3" placeholder="Ej: Conteo físico, corrección de error..." required></textarea>
+                            <label class="form-label">Motivo del ajuste *</label>
+                            <textarea name="motivo" class="form-control" rows="3" placeholder="Ej: Conteo físico, merma, corrección de carga..." required></textarea>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -178,16 +272,41 @@ try {
             </div>
         </div>
     </div>
-    
+
     <script>
-    function mostrarStockActual() {
-        const select = document.getElementById('productoSelect');
-        const option = select.options[select.selectedIndex];
-        const stock = option.getAttribute('data-stock') || '';
-        document.getElementById('stockActual').value = stock;
+    const stockPorAlmacen = <?= json_encode($stockPorAlmacen, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>;
+
+    function stockSistemaSeleccionado() {
+        const almacenId = document.getElementById('almacenSelect').value;
+        const productoId = document.getElementById('productoSelect').value;
+        return parseInt((stockPorAlmacen[almacenId] || {})[productoId] || 0, 10);
+    }
+
+    function actualizarStockActual() {
+        document.getElementById('stockActual').value = stockSistemaSeleccionado();
+        calcularDiferencia();
+    }
+
+    function calcularDiferencia() {
+        const stockSistema = stockSistemaSeleccionado();
+        const stockFisicoInput = document.getElementById('stockFisico').value;
+        const stockFisico = stockFisicoInput === '' ? stockSistema : parseInt(stockFisicoInput, 10);
+        const diferencia = stockFisico - stockSistema;
+        const diferenciaInput = document.getElementById('diferencia');
+        diferenciaInput.value = (diferencia > 0 ? '+' : '') + diferencia;
+        diferenciaInput.classList.toggle('is-invalid', stockFisico < 0 || Number.isNaN(stockFisico));
+    }
+
+    function validarAjuste() {
+        const stockFisico = parseInt(document.getElementById('stockFisico').value, 10);
+        if (!Number.isInteger(stockFisico) || stockFisico < 0) {
+            alert('El stock físico no puede ser negativo.');
+            return false;
+        }
+        return true;
     }
     </script>
-    
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="<?= app_url('js/main.js'); ?>"></script>
 </body>

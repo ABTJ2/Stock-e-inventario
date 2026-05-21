@@ -7,8 +7,8 @@ require_guest();
 
 $error = '';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $username = trim((string) ($_POST['usuario'] ?? ''));
+if (request_method_is('POST')) {
+    $username = post_string('usuario', 50);
     $password = (string) ($_POST['clave'] ?? '');
 
     if ($username === '' || $password === '') {
@@ -18,6 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $user = find_user_for_login($username);
 
             if ($user === null || $user['estado'] !== 'activo' || !password_verify($password, $user['clave'])) {
+                audit_event('login_failed', 'auth', $user !== null ? (int) $user['id_usuario'] : null, 'Intento fallido para usuario: ' . $username);
                 $error = 'Las credenciales ingresadas no son válidas.';
             } else {
                 login_user($user);
@@ -50,11 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <body class="auth-body">
     <main class="login-shell">
         <section class="login-showcase">
-            <div class="brand-badge">
-                <span class="brand-badge__icon"><i class="fa-solid fa-shield-heart"></i></span>
-                Plataforma empresarial
-            </div>
-            <h1 class="showcase-title">Bendito Jugador</h1>
+            <img class="showcase-logo" src="<?= app_url('assets/img/bendito-jugador-logo.png'); ?>" alt="Bendito Jugador">
             <p class="showcase-text">
                 Gestión centralizada con enfoque ERP para operaciones, inventario, trazabilidad y decisiones estratégicas.
             </p>
@@ -76,7 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <section class="login-panel">
             <div class="login-card">
                 <div class="login-brand">
-                    <div class="login-brand__icon"><i class="fa-solid fa-futbol"></i></div>
+                    <img class="login-brand__logo" src="<?= app_url('assets/img/bendito-jugador-logo.png'); ?>" alt="Bendito Jugador">
                     <div>
                         <span class="login-brand__eyebrow">Acceso al sistema</span>
                         <h2>Iniciar sesión</h2>

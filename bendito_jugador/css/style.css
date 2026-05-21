@@ -258,9 +258,28 @@ body {
 .sidebar-header {
     padding: 20px;
     background: var(--primary);
-    text-align: center;
+    text-align: left;
     position: relative;
     flex-shrink: 0;
+}
+
+.sidebar-brand {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    min-width: 0;
+    padding-right: 34px;
+}
+
+.sidebar-brand-icon {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+.sidebar-brand-text {
+    min-width: 0;
 }
 
 .sidebar-toggle {
@@ -286,15 +305,17 @@ body {
 }
 
 .sidebar-header h2 {
-    font-size: 18px;
-    font-weight: 700;
+    font-size: 14px;
+    font-weight: 800;
     color: white;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    line-height: 1.15;
+    letter-spacing: 0.4px;
 }
 
-.sidebar.collapsed .sidebar-header h2 {
+.sidebar.collapsed .sidebar-brand-text {
     display: none;
 }
 
@@ -305,13 +326,18 @@ body {
     font-size: 12px;
 }
 
-.sidebar.collapsed .sidebar-header small {
-    display: none;
-}
-
 .sidebar.collapsed .sidebar-toggle {
     right: 50%;
     transform: translate(50%, -50%);
+}
+
+.sidebar.collapsed .sidebar-header {
+    padding: 16px;
+}
+
+.sidebar.collapsed .sidebar-brand {
+    justify-content: center;
+    padding-right: 0;
 }
 
 /* Sidebar Menu */
@@ -1046,6 +1072,14 @@ body {
     color: white;
 }
 
+.showcase-logo {
+    display: block;
+    width: min(520px, 100%);
+    height: auto;
+    margin-bottom: 24px;
+    object-fit: contain;
+}
+
 .brand-badge {
     display: inline-flex;
     align-items: center;
@@ -1137,6 +1171,16 @@ body {
     display: flex;
     gap: 16px;
     margin-bottom: 30px;
+}
+
+.login-brand__logo {
+    width: 92px;
+    height: 46px;
+    object-fit: contain;
+    flex-shrink: 0;
+    background: #05070c;
+    border-radius: 8px;
+    padding: 6px;
 }
 
 .login-brand__icon {

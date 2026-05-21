@@ -3,10 +3,6 @@ declare(strict_types=1);
 
 class Database
 {
-    private string $host = 'localhost';
-    private string $dbName = 'bendito_jugador';
-    private string $username = 'root';
-    private string $password = '';
     private ?PDO $connection = null;
 
     public function getConnection(): PDO
@@ -17,9 +13,9 @@ class Database
 
         try {
             $this->connection = new PDO(
-                sprintf('mysql:host=%s;dbname=%s;charset=utf8mb4', $this->host, $this->dbName),
-                $this->username,
-                $this->password,
+                sprintf('mysql:host=%s;dbname=%s;charset=%s', DB_HOST, DB_NAME, DB_CHARSET),
+                DB_USER,
+                DB_PASS,
                 [
                     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,

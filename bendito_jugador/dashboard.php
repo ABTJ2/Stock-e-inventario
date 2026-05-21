@@ -21,7 +21,7 @@ try {
     $stmt = $conn->query("SELECT COUNT(*) as total FROM productos WHERE estado = 'activo'");
     $totalProductos = $stmt->fetch()['total'] ?? 0;
     
-    $stmt = $conn->query("SELECT COUNT(*) as total FROM productos WHERE stock_actual <= stock_minimo AND estado = 'activo'");
+    $stmt = $conn->query("SELECT COUNT(*) as total FROM productos WHERE stock_minimo > 0 AND stock_actual <= stock_minimo AND estado = 'activo'");
     $stockBajo = $stmt->fetch()['total'] ?? 0;
     
     $stmt = $conn->query("SELECT COUNT(*) as total FROM proveedores WHERE estado = 'activo'");
@@ -150,9 +150,10 @@ try {
                 </div>
                 <?php endif; ?>
             </div>
+            <?php include __DIR__ . '/includes/footer.php'; ?>
         </div>
     </div>
-    
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="<?= app_url('js/main.js'); ?>"></script>
 </body>

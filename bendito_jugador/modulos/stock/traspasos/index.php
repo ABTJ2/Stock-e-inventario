@@ -17,7 +17,7 @@ try { $productos = db()->query("SELECT * FROM productos WHERE estado = 'activo' 
 $error = '';
 $success = '';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'crear') {
+if (request_method_is('POST') && isset($_POST['action']) && $_POST['action'] === 'crear') {
     $id_producto = intval($_POST['id_producto'] ?? 0);
     $id_almacen_origen = intval($_POST['id_almacen_origen'] ?? 0);
     $id_almacen_destino = intval($_POST['id_almacen_destino'] ?? 0);
@@ -48,10 +48,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 $stmt = db()->prepare("UPDATE stock_por_almacen SET stock_actual = ? WHERE id_producto = ? AND id_almacen = ?");
                 $stmt->execute([$stock_origen_nuevo, $id_producto, $id_almacen_origen]);
 
-                $stmt = db()->prepare("INSERT INTO movimientos_stock (id_producto, id_usuario, tipo_movimiento, cantidad, stock_anterior, stock_nuevo, motivo, referencia) VALUES (?, ?, 'traspaso', ?, ?, ?, ?, ?)");
+                $stmt = db()->prepare("INSERT INTO movimientos_stock (id_producto, id_usuario, id_almacen, tipo_movimiento, cantidad, stock_anterior, stock_nuevo, motivo, referencia, entidad_origen, id_entidad_origen) VALUES (?, ?, ?, 'traspaso', ?, ?, ?, ?, ?, 'traspaso', ?)");
                 $motivo_or = 'Traspaso - salida';
                 $ref = 'traspaso:' . $id_traspaso;
-                $stmt->execute([$id_producto, current_user()['id'], $cantidad, $stock_origen_ant, $stock_origen_nuevo, $motivo_or, $ref]);
+                $stmt->execute([$id_producto, current_user()['id'], $id_almacen_origen, $cantidad, $stock_origen_ant, $stock_origen_nuevo, $motivo_or, $ref, $id_traspaso]);
 
                 // Destino
                 $stmt = db()->prepare("SELECT stock_actual FROM stock_por_almacen WHERE id_producto = ? AND id_almacen = ?");
@@ -69,9 +69,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     $stmt->execute([$id_producto, $id_almacen_destino, $stock_dest_nuevo]);
                 }
 
-                $stmt = db()->prepare("INSERT INTO movimientos_stock (id_producto, id_usuario, tipo_movimiento, cantidad, stock_anterior, stock_nuevo, motivo, referencia) VALUES (?, ?, 'traspaso', ?, ?, ?, ?, ?)");
+                $stmt = db()->prepare("INSERT INTO movimientos_stock (id_producto, id_usuario, id_almacen, tipo_movimiento, cantidad, stock_anterior, stock_nuevo, motivo, referencia, entidad_origen, id_entidad_origen) VALUES (?, ?, ?, 'traspaso', ?, ?, ?, ?, ?, 'traspaso', ?)");
                 $motivo_de = 'Traspaso - ingreso';
-                $stmt->execute([$id_producto, current_user()['id'], $cantidad, $stock_dest_ant, $stock_dest_nuevo, $motivo_de, $ref]);
+                $stmt->execute([$id_producto, current_user()['id'], $id_almacen_destino, $cantidad, $stock_dest_ant, $stock_dest_nuevo, $motivo_de, $ref, $id_traspaso]);
 
                 // Actualizar stock global del producto sumando almacenes
                 $stmt = db()->prepare("UPDATE productos SET stock_actual = (SELECT COALESCE(SUM(stock_actual),0) FROM stock_por_almacen WHERE id_producto = ?) WHERE id_producto = ?");

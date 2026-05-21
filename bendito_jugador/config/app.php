@@ -5,6 +5,14 @@ date_default_timezone_set('America/Argentina/Buenos_Aires');
 
 define('APP_NAME', 'Bendito Jugador');
 define('APP_ROOT', dirname(__DIR__));
+define('APP_ENV', 'local');
+define('APP_DEBUG', true);
+
+define('DB_HOST', 'localhost');
+define('DB_NAME', 'bendito_jugador');
+define('DB_USER', 'root');
+define('DB_PASS', '');
+define('DB_CHARSET', 'utf8mb4');
 
 if (!function_exists('derive_app_url')) {
     function derive_app_url(): string
@@ -32,29 +40,16 @@ if (!function_exists('derive_app_url')) {
 define('APP_URL', derive_app_url());
 
 if (session_status() !== PHP_SESSION_ACTIVE) {
+    ini_set('session.use_strict_mode', '1');
+    ini_set('session.use_only_cookies', '1');
     session_name('bendito_jugador_session');
+    session_set_cookie_params([
+        'lifetime' => 0,
+        'path' => '/',
+        'domain' => '',
+        'secure' => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off'),
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
     session_start();
-}
-
-if (!function_exists('app_url')) {
-    function app_url(string $path = ''): string
-    {
-        $path = ltrim($path, '/');
-        return APP_URL . ($path !== '' ? '/' . $path : '');
-    }
-}
-
-if (!function_exists('redirect')) {
-    function redirect(string $path): never
-    {
-        header('Location: ' . $path);
-        exit;
-    }
-}
-
-if (!function_exists('e')) {
-    function e(?string $value): string
-    {
-        return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
-    }
 }

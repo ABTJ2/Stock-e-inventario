@@ -11,7 +11,7 @@ if (!is_first_login_pending()) {
 
 $errors = [];
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if (request_method_is('POST')) {
     $newPassword = (string) ($_POST['nueva_password'] ?? '');
     $confirmPassword = (string) ($_POST['confirmar_password'] ?? '');
 

@@ -2,13 +2,13 @@
     <div class="col-md-4">
         <div class="form-group">
             <label class="form-label">Codigo *</label>
-            <input type="text" name="codigo" class="form-control" value="<?= e($p['codigo'] ?? ''); ?>" readonly required>
+            <input type="text" name="codigo" class="form-control" maxlength="50" value="<?= e($p['codigo'] ?? ''); ?>" required>
         </div>
     </div>
     <div class="col-md-8">
         <div class="form-group">
             <label class="form-label">Nombre *</label>
-            <input type="text" name="nombre" class="form-control" value="<?= e($p['nombre'] ?? ''); ?>" required>
+            <input type="text" name="nombre" class="form-control" maxlength="150" value="<?= e($p['nombre'] ?? ''); ?>" required>
         </div>
     </div>
 </div>
@@ -21,13 +21,14 @@
 <div class="row">
     <div class="col-md-4">
         <div class="form-group">
-            <label class="form-label">Precio de referencia</label>
+            <label class="form-label">Precio *</label>
             <input
                 type="number"
                 name="precio_referencia"
                 class="form-control"
                 step="0.01"
                 min="0"
+                data-select-zero
                 value="<?= e((string) ($p['precio_referencia'] ?? 0)); ?>"
                 required
             >
@@ -35,12 +36,13 @@
     </div>
     <div class="col-md-4">
         <div class="form-group">
-            <label class="form-label">Stock actual</label>
+            <label class="form-label"><?= e($stockLabel ?? 'Stock actual'); ?></label>
             <input
                 type="number"
                 name="stock_actual"
                 class="form-control"
                 min="0"
+                data-select-zero
                 value="<?= e((string) ($p['stock_actual'] ?? 0)); ?>"
                 required
             >
@@ -54,6 +56,7 @@
                 name="stock_minimo"
                 class="form-control"
                 min="0"
+                data-select-zero
                 value="<?= e((string) ($p['stock_minimo'] ?? 0)); ?>"
                 required
             >

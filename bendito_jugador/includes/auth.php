@@ -34,6 +34,18 @@ if (!function_exists('find_user_for_login')) {
     }
 }
 
+if (!function_exists('sync_legacy_session_user')) {
+    function sync_legacy_session_user(array $user): void
+    {
+        $_SESSION['id_usuario'] = (int) $user['id_usuario'];
+        $_SESSION['usuario'] = $user['usuario'];
+        $_SESSION['nombre_completo'] = $user['nombre_completo'];
+        $_SESSION['id_rol'] = (int) $user['id_rol'];
+        $_SESSION['nombre_rol'] = $user['nombre_rol'] ?? 'Sin rol';
+        $_SESSION['primer_ingreso'] = (int) $user['primer_ingreso'];
+    }
+}
+
 if (!function_exists('login_user')) {
     function login_user(array $user): void
     {
@@ -48,23 +60,12 @@ if (!function_exists('login_user')) {
             'first_login' => (int) $user['primer_ingreso'],
         ];
 
-        // Compatibilidad con los módulos existentes hasta migrarlos al helper current_user().
-        $_SESSION['id_usuario'] = (int) $user['id_usuario'];
-        $_SESSION['usuario'] = $user['usuario'];
-        $_SESSION['nombre_completo'] = $user['nombre_completo'];
-        $_SESSION['id_rol'] = (int) $user['id_rol'];
-        $_SESSION['nombre_rol'] = $user['nombre_rol'] ?? 'Sin rol';
-        $_SESSION['primer_ingreso'] = (int) $user['primer_ingreso'];
-        
-        $_SESSION['id_usuario'] = (int) $user['id_usuario'];
-        $_SESSION['usuario'] = $user['usuario'];
-        $_SESSION['nombre_completo'] = $user['nombre_completo'];
-        $_SESSION['id_rol'] = (int) $user['id_rol'];
-        $_SESSION['nombre_rol'] = $user['nombre_rol'] ?? 'Sin rol';
-        $_SESSION['primer_ingreso'] = (int) $user['primer_ingreso'];
+        sync_legacy_session_user($user);
 
         $statement = db()->prepare('UPDATE usuarios SET fecha_ultimo_login = NOW() WHERE id_usuario = :id_usuario');
         $statement->execute(['id_usuario' => (int) $user['id_usuario']]);
+
+        audit_event('login', 'auth', (int) $user['id_usuario'], 'Inicio de sesión correcto.');
     }
 }
 
@@ -79,6 +80,32 @@ if (!function_exists('is_logged_in')) {
     function is_logged_in(): bool
     {
         return current_user() !== null;
+    }
+}
+
+if (!function_exists('current_user_role')) {
+    function current_user_role(): string
+    {
+        return (string) (current_user()['role_name'] ?? '');
+    }
+}
+
+if (!function_exists('has_role')) {
+    function has_role(string $roleName): bool
+    {
+        return strcasecmp(current_user_role(), $roleName) === 0;
+    }
+}
+
+if (!function_exists('require_role')) {
+    function require_role(string $roleName): void
+    {
+        require_auth();
+
+        if (!has_role($roleName)) {
+            http_response_code(403);
+            exit('Acceso denegado.');
+        }
     }
 }
 
@@ -120,6 +147,11 @@ if (!function_exists('require_guest')) {
 if (!function_exists('logout_user')) {
     function logout_user(): void
     {
+        $userId = (int) (current_user()['id'] ?? 0);
+        if ($userId > 0) {
+            audit_event('logout', 'auth', $userId, 'Cierre de sesión.');
+        }
+
         $_SESSION = [];
 
         if (ini_get('session.use_cookies')) {
@@ -147,6 +179,8 @@ if (!function_exists('update_first_login_password')) {
 
         $_SESSION['user']['first_login'] = 0;
         $_SESSION['primer_ingreso'] = 0;
+
+        audit_event('password_change', 'auth', $userId, 'Cambio obligatorio de contraseña por primer ingreso.');
     }
 }
 

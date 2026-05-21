@@ -1,0 +1,327 @@
+CREATE DATABASE IF NOT EXISTS bendito_jugador
+    CHARACTER SET utf8mb4
+    COLLATE utf8mb4_unicode_ci;
+
+USE bendito_jugador;
+
+CREATE TABLE IF NOT EXISTS roles (
+    id_rol INT AUTO_INCREMENT PRIMARY KEY,
+    nombre_rol VARCHAR(50) NOT NULL UNIQUE,
+    descripcion VARCHAR(255),
+    estado ENUM('activo', 'inactivo') NOT NULL DEFAULT 'activo',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS usuarios (
+    id_usuario INT AUTO_INCREMENT PRIMARY KEY,
+    usuario VARCHAR(50) NOT NULL UNIQUE,
+    clave VARCHAR(255) NOT NULL,
+    nombre_completo VARCHAR(100) NOT NULL,
+    id_rol INT NOT NULL,
+    estado ENUM('activo', 'inactivo') NOT NULL DEFAULT 'activo',
+    primer_ingreso TINYINT(1) NOT NULL DEFAULT 1,
+    fecha_ultimo_login DATETIME NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_usuarios_roles
+        FOREIGN KEY (id_rol) REFERENCES roles(id_rol)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS auditoria_sistema (
+    id_auditoria BIGINT AUTO_INCREMENT PRIMARY KEY,
+    id_usuario INT NULL,
+    accion VARCHAR(80) NOT NULL,
+    modulo VARCHAR(80) NOT NULL,
+    entidad VARCHAR(80) NULL,
+    id_entidad BIGINT NULL,
+    detalle TEXT NULL,
+    ip VARCHAR(45) NULL,
+    user_agent VARCHAR(255) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_auditoria_usuario (id_usuario),
+    INDEX idx_auditoria_accion (accion),
+    INDEX idx_auditoria_modulo (modulo),
+    CONSTRAINT fk_auditoria_sistema_usuario
+        FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario)
+        ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS parametros_sistema (
+    id_parametro INT AUTO_INCREMENT PRIMARY KEY,
+    clave VARCHAR(100) NOT NULL UNIQUE,
+    valor TEXT NULL,
+    descripcion VARCHAR(255) NULL,
+    tipo VARCHAR(30) NOT NULL DEFAULT 'texto',
+    estado TINYINT(1) NOT NULL DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS categorias_producto (
+    id_categoria INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL UNIQUE,
+    descripcion VARCHAR(255),
+    estado TINYINT DEFAULT 1
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS marcas (
+    id_marca INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL UNIQUE,
+    estado TINYINT DEFAULT 1
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS unidades_medida (
+    id_unidad_medida INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL UNIQUE,
+    abreviatura VARCHAR(20),
+    estado TINYINT DEFAULT 1
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS estados_producto (
+    id_estado_producto INT AUTO_INCREMENT PRIMARY KEY,
+    nombre_estado VARCHAR(50) NOT NULL UNIQUE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS almacenes (
+    id_almacen INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL UNIQUE,
+    descripcion TEXT,
+    ubicacion VARCHAR(150),
+    estado TINYINT DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS productos (
+    id_producto INT AUTO_INCREMENT PRIMARY KEY,
+    codigo VARCHAR(50) UNIQUE NOT NULL,
+    nombre VARCHAR(150) NOT NULL,
+    descripcion TEXT,
+    precio_referencia DECIMAL(10,2) DEFAULT 0,
+    precio DECIMAL(10,2) DEFAULT 0,
+    stock_actual INT DEFAULT 0,
+    stock_minimo INT DEFAULT 0,
+    categoria VARCHAR(100),
+    unidad_medida VARCHAR(20),
+    estado ENUM('activo', 'inactivo') DEFAULT 'activo',
+    id_categoria INT NULL,
+    id_marca INT NULL,
+    id_unidad_medida INT NULL,
+    id_estado_producto INT NULL,
+    fecha_alta DATETIME DEFAULT CURRENT_TIMESTAMP,
+    fecha_actualizacion DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_productos_categoria
+        FOREIGN KEY (id_categoria) REFERENCES categorias_producto(id_categoria),
+    CONSTRAINT fk_productos_marca
+        FOREIGN KEY (id_marca) REFERENCES marcas(id_marca),
+    CONSTRAINT fk_productos_unidad
+        FOREIGN KEY (id_unidad_medida) REFERENCES unidades_medida(id_unidad_medida),
+    CONSTRAINT fk_productos_estado
+        FOREIGN KEY (id_estado_producto) REFERENCES estados_producto(id_estado_producto)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS estados_proveedor (
+    id_estado_proveedor INT AUTO_INCREMENT PRIMARY KEY,
+    nombre_estado VARCHAR(50) NOT NULL UNIQUE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS rubros_proveedor (
+    id_rubro_proveedor INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL UNIQUE,
+    estado TINYINT DEFAULT 1
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS condiciones_iva (
+    id_condicion_iva INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL UNIQUE,
+    estado TINYINT DEFAULT 1
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS paises (
+    id_pais INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL UNIQUE,
+    estado TINYINT DEFAULT 1
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS provincias (
+    id_provincia INT AUTO_INCREMENT PRIMARY KEY,
+    id_pais INT NOT NULL,
+    nombre VARCHAR(100) NOT NULL,
+    estado TINYINT DEFAULT 1,
+    UNIQUE KEY uq_provincia_pais (id_pais, nombre),
+    CONSTRAINT fk_provincias_pais
+        FOREIGN KEY (id_pais) REFERENCES paises(id_pais)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS localidades (
+    id_localidad INT AUTO_INCREMENT PRIMARY KEY,
+    id_provincia INT NOT NULL,
+    nombre VARCHAR(100) NOT NULL,
+    estado TINYINT DEFAULT 1,
+    UNIQUE KEY uq_localidad_provincia (id_provincia, nombre),
+    CONSTRAINT fk_localidades_provincia
+        FOREIGN KEY (id_provincia) REFERENCES provincias(id_provincia)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS proveedores (
+    id_proveedor INT AUTO_INCREMENT PRIMARY KEY,
+    cuit VARCHAR(20) UNIQUE,
+    razon_social VARCHAR(100) NOT NULL,
+    nombre_fantasia VARCHAR(150),
+    telefono VARCHAR(20),
+    email VARCHAR(100),
+    sitio_web VARCHAR(150),
+    direccion TEXT,
+    codigo_postal VARCHAR(20),
+    contacto VARCHAR(100),
+    plazo_pago VARCHAR(100),
+    cbu VARCHAR(30),
+    alias VARCHAR(80),
+    datos_bancarios TEXT,
+    observaciones TEXT,
+    estado ENUM('activo', 'inactivo') DEFAULT 'activo',
+    id_estado_proveedor INT NULL,
+    id_rubro_proveedor INT NULL,
+    id_condicion_iva INT NULL,
+    id_pais INT NULL,
+    id_provincia INT NULL,
+    id_localidad INT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    fecha_actualizacion DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_proveedores_estado
+        FOREIGN KEY (id_estado_proveedor) REFERENCES estados_proveedor(id_estado_proveedor),
+    CONSTRAINT fk_proveedores_rubro
+        FOREIGN KEY (id_rubro_proveedor) REFERENCES rubros_proveedor(id_rubro_proveedor),
+    CONSTRAINT fk_proveedores_condicion_iva
+        FOREIGN KEY (id_condicion_iva) REFERENCES condiciones_iva(id_condicion_iva),
+    CONSTRAINT fk_proveedores_pais
+        FOREIGN KEY (id_pais) REFERENCES paises(id_pais),
+    CONSTRAINT fk_proveedores_provincia
+        FOREIGN KEY (id_provincia) REFERENCES provincias(id_provincia),
+    CONSTRAINT fk_proveedores_localidad
+        FOREIGN KEY (id_localidad) REFERENCES localidades(id_localidad)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS ingresos_mercaderia (
+    id_ingreso INT AUTO_INCREMENT PRIMARY KEY,
+    id_proveedor INT NULL,
+    id_usuario INT NOT NULL,
+    id_almacen INT NOT NULL,
+    numero_factura VARCHAR(50),
+    fecha DATE NOT NULL,
+    observaciones TEXT,
+    estado ENUM('pendiente', 'confirmado', 'cancelado') DEFAULT 'pendiente',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_ingresos_proveedor
+        FOREIGN KEY (id_proveedor) REFERENCES proveedores(id_proveedor),
+    CONSTRAINT fk_ingresos_usuario
+        FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario),
+    CONSTRAINT fk_ingresos_almacen
+        FOREIGN KEY (id_almacen) REFERENCES almacenes(id_almacen)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS detalle_ingreso (
+    id_detalle INT AUTO_INCREMENT PRIMARY KEY,
+    id_ingreso INT NOT NULL,
+    id_producto INT NOT NULL,
+    cantidad INT NOT NULL,
+    precio_unitario DECIMAL(10,2) NOT NULL,
+    observacion VARCHAR(255) NULL,
+    CONSTRAINT fk_detalle_ingreso
+        FOREIGN KEY (id_ingreso) REFERENCES ingresos_mercaderia(id_ingreso),
+    CONSTRAINT fk_detalle_producto
+        FOREIGN KEY (id_producto) REFERENCES productos(id_producto)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS movimientos_stock (
+    id_movimiento INT AUTO_INCREMENT PRIMARY KEY,
+    id_producto INT NOT NULL,
+    id_usuario INT NOT NULL,
+    id_almacen INT NULL,
+    tipo_movimiento ENUM('ingreso', 'egreso', 'ajuste_positivo', 'ajuste_negativo', 'traspaso') NOT NULL,
+    cantidad INT NOT NULL,
+    stock_anterior INT NOT NULL,
+    stock_nuevo INT NOT NULL,
+    motivo VARCHAR(255),
+    referencia VARCHAR(100),
+    entidad_origen ENUM('ingreso', 'ajuste', 'traspaso', 'producto') NULL,
+    id_entidad_origen INT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_movimientos_almacen (id_almacen),
+    INDEX idx_movimientos_origen (entidad_origen, id_entidad_origen),
+    CONSTRAINT fk_movimientos_producto
+        FOREIGN KEY (id_producto) REFERENCES productos(id_producto),
+    CONSTRAINT fk_movimientos_usuario
+        FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario),
+    CONSTRAINT fk_movimientos_almacen
+        FOREIGN KEY (id_almacen) REFERENCES almacenes(id_almacen)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS stock_por_almacen (
+    id_stock INT AUTO_INCREMENT PRIMARY KEY,
+    id_producto INT NOT NULL,
+    id_almacen INT NOT NULL,
+    stock_actual INT DEFAULT 0,
+    stock_reservado INT DEFAULT 0,
+    fecha_actualizacion DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_producto_almacen (id_producto, id_almacen),
+    CONSTRAINT fk_stock_producto
+        FOREIGN KEY (id_producto) REFERENCES productos(id_producto),
+    CONSTRAINT fk_stock_almacen
+        FOREIGN KEY (id_almacen) REFERENCES almacenes(id_almacen)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS traspasos (
+    id_traspaso INT AUTO_INCREMENT PRIMARY KEY,
+    id_producto INT NOT NULL,
+    id_almacen_origen INT NOT NULL,
+    id_almacen_destino INT NOT NULL,
+    cantidad INT NOT NULL,
+    id_usuario INT NOT NULL,
+    estado ENUM('pendiente', 'confirmado', 'cancelado') DEFAULT 'pendiente',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_traspasos_producto
+        FOREIGN KEY (id_producto) REFERENCES productos(id_producto),
+    CONSTRAINT fk_traspasos_origen
+        FOREIGN KEY (id_almacen_origen) REFERENCES almacenes(id_almacen),
+    CONSTRAINT fk_traspasos_destino
+        FOREIGN KEY (id_almacen_destino) REFERENCES almacenes(id_almacen),
+    CONSTRAINT fk_traspasos_usuario
+        FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS ajustes_inventario (
+    id_ajuste INT AUTO_INCREMENT PRIMARY KEY,
+    id_producto INT NOT NULL,
+    id_usuario INT NOT NULL,
+    id_almacen INT NOT NULL,
+    stock_anterior INT NOT NULL,
+    stock_nuevo INT NOT NULL,
+    diferencia INT NOT NULL,
+    motivo TEXT NOT NULL,
+    estado ENUM('pendiente', 'aprobado', 'rechazado') DEFAULT 'pendiente',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_ajustes_producto
+        FOREIGN KEY (id_producto) REFERENCES productos(id_producto),
+    CONSTRAINT fk_ajustes_usuario
+        FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario),
+    CONSTRAINT fk_ajustes_almacen
+        FOREIGN KEY (id_almacen) REFERENCES almacenes(id_almacen)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS auditoria_inventario (
+    id_auditoria INT AUTO_INCREMENT PRIMARY KEY,
+    id_producto INT NOT NULL,
+    id_almacen INT NULL,
+    id_usuario INT NOT NULL,
+    stock_sistema INT NOT NULL,
+    stock_real INT NOT NULL,
+    diferencia INT NOT NULL,
+    observaciones TEXT,
+    fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_auditoria_producto
+        FOREIGN KEY (id_producto) REFERENCES productos(id_producto),
+    CONSTRAINT fk_auditoria_almacen
+        FOREIGN KEY (id_almacen) REFERENCES almacenes(id_almacen),
+    CONSTRAINT fk_auditoria_usuario
+        FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const exitAppButton = document.getElementById('exitAppButton');
     const passwordInput = document.getElementById('nueva_password');
     const confirmPasswordInput = document.getElementById('confirmar_password');
+    const zeroSelectableInputs = document.querySelectorAll('[data-select-zero]');
 
     if (sidebar && sidebarToggle) {
         sidebarToggle.addEventListener('click', function (event) {
@@ -54,6 +55,14 @@ document.addEventListener('DOMContentLoaded', function () {
         passwordInput.addEventListener('input', validateMatch);
         confirmPasswordInput.addEventListener('input', validateMatch);
     }
+
+    zeroSelectableInputs.forEach(function (input) {
+        input.addEventListener('focus', function () {
+            if (this.value === '0' || this.value === '0.00') {
+                this.select();
+            }
+        });
+    });
 });
 
 function syncActiveSidebarItem(submenuItems) {
