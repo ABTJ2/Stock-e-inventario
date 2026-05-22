@@ -378,10 +378,20 @@ INSERT IGNORE INTO roles (nombre_rol, descripcion) VALUES
 ('Supervisor Auditor', 'Usuario con permisos de auditoria y control'),
 ('Gerente Zonal', 'Usuario con permisos de gestion por zona');
 
-INSERT IGNORE INTO usuarios (usuario, clave, nombre_completo, id_rol, primer_ingreso, estado) VALUES
-('admin', '$2y$10$iYU2bFLHH5cnDbcJh//n5eFs8JBa4xNXevjxQQ0IC/5C545vJ77/q', 'Administrador Principal', 1, 1, 'activo'),
-('supervisor', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Supervisor de Stock', 3, 1, 'activo'),
-('operario', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Operario de Stock', 2, 1, 'activo');
+-- Credenciales iniciales de desarrollo:
+-- admin / admin123
+-- supervisor / password
+-- operario / password
+INSERT INTO usuarios (usuario, clave, nombre_completo, id_rol, primer_ingreso, estado) VALUES
+('admin', '$2y$10$iYU2bFLHH5cnDbcJh//n5eFs8JBa4xNXevjxQQ0IC/5C545vJ77/q', 'Administrador Principal', (SELECT id_rol FROM roles WHERE nombre_rol = 'Administrador' LIMIT 1), 0, 'activo'),
+('supervisor', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Supervisor de Stock', (SELECT id_rol FROM roles WHERE nombre_rol = 'Supervisor Administrativo' LIMIT 1), 1, 'activo'),
+('operario', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Operario de Stock', (SELECT id_rol FROM roles WHERE nombre_rol = 'Empleado' LIMIT 1), 1, 'activo')
+ON DUPLICATE KEY UPDATE
+    clave = VALUES(clave),
+    nombre_completo = VALUES(nombre_completo),
+    id_rol = VALUES(id_rol),
+    primer_ingreso = VALUES(primer_ingreso),
+    estado = VALUES(estado);
 
 INSERT IGNORE INTO categorias_producto (nombre, descripcion, estado) VALUES
 ('Indumentaria', 'Ropa deportiva', 1),

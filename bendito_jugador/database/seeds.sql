@@ -2,17 +2,40 @@ USE bendito_jugador;
 
 INSERT INTO roles (nombre_rol, descripcion, estado) VALUES
 ('Administrador', 'Usuario con acceso total al sistema', 'activo'),
-('Empleado', 'Usuario con acceso operativo basico', 'activo')
+('Empleado', 'Usuario con acceso operativo basico', 'activo'),
+('Supervisor Administrativo', 'Usuario con permisos de supervision y reportes', 'activo'),
+('Supervisor Auditor', 'Usuario con permisos de auditoria y control', 'activo'),
+('Gerente Zonal', 'Usuario con permisos de gestion por zona', 'activo')
 ON DUPLICATE KEY UPDATE
     descripcion = VALUES(descripcion),
     estado = VALUES(estado);
 
+-- Credenciales iniciales de desarrollo:
+-- admin / admin123
+-- supervisor / password
+-- operario / password
 INSERT INTO usuarios (usuario, clave, nombre_completo, id_rol, estado, primer_ingreso) VALUES
 (
     'admin',
     '$2y$10$iYU2bFLHH5cnDbcJh//n5eFs8JBa4xNXevjxQQ0IC/5C545vJ77/q',
     'Administrador Principal',
     (SELECT id_rol FROM roles WHERE nombre_rol = 'Administrador' LIMIT 1),
+    'activo',
+    0
+),
+(
+    'supervisor',
+    '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
+    'Supervisor de Stock',
+    (SELECT id_rol FROM roles WHERE nombre_rol = 'Supervisor Administrativo' LIMIT 1),
+    'activo',
+    1
+),
+(
+    'operario',
+    '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
+    'Operario de Stock',
+    (SELECT id_rol FROM roles WHERE nombre_rol = 'Empleado' LIMIT 1),
     'activo',
     1
 )
