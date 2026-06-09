@@ -91,7 +91,11 @@ if (request_method_is('POST')) {
 <body class="auth-body">
     <main class="login-shell">
         <section class="login-showcase">
+<<<<<<< HEAD
             <img class="showcase-logo" src="<?= app_url('assets/img/bendito_jugador_logo.png'); ?>" alt="Bendito Jugador">
+=======
+            <img class="showcase-logo" src="<?= app_url('assets/img/bendito-jugador-logo.png'); ?>" alt="Bendito Jugador">
+>>>>>>> 737873b897237eb7a9d9fbed999797b112a10fea
             <p class="showcase-text">
                 Gestión centralizada con enfoque ERP para operaciones, inventario, trazabilidad y decisiones estratégicas.
             </p>
@@ -113,7 +117,11 @@ if (request_method_is('POST')) {
         <section class="login-panel">
             <div class="login-card">
                 <div class="login-brand">
+<<<<<<< HEAD
                     <img class="login-brand__logo" src="<?= app_url('assets/img/bendito_jugador_logo.png'); ?>" alt="Bendito Jugador">
+=======
+                    <img class="login-brand__logo" src="<?= app_url('assets/img/bendito-jugador-logo.png'); ?>" alt="Bendito Jugador">
+>>>>>>> 737873b897237eb7a9d9fbed999797b112a10fea
                     <div>
                         <span class="login-brand__eyebrow">Acceso al sistema</span>
                         <h2>Iniciar sesión</h2>

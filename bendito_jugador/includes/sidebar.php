@@ -37,7 +37,11 @@ $stockItems = [
             <i class="fas fa-bars"></i>
         </button>
         <div class="sidebar-brand">
+<<<<<<< HEAD
             <img class="sidebar-brand-icon" src="<?= app_url('assets/img/bendito_jugador_icono.png'); ?>" alt="Bendito Jugador">
+=======
+            <img class="sidebar-brand-icon" src="<?= app_url('assets/img/bendito-jugador-icon.png'); ?>" alt="Bendito Jugador">
+>>>>>>> 737873b897237eb7a9d9fbed999797b112a10fea
             <div class="sidebar-brand-text">
                 <h2>BENDITO JUGADOR</h2>
                 <small>ERP empresarial</small>
