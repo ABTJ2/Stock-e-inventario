@@ -1,0 +1,24 @@
+USE bendito_jugador;
+
+-- Ejecutar una vez en bases existentes antes de usar la version corregida.
+-- Si se importa setup.sql desde cero, este archivo no es obligatorio.
+
+UPDATE roles
+SET nombre_rol = 'Empleado / Operario',
+    descripcion = 'Usuario operativo para movimientos, consulta de productos e informes basicos'
+WHERE nombre_rol = 'Empleado';
+
+UPDATE productos
+SET codigo = CAST(id_producto AS CHAR)
+WHERE codigo NOT REGEXP '^[0-9]+$';
+
+ALTER TABLE productos
+    ADD CONSTRAINT chk_productos_codigo_numerico CHECK (codigo REGEXP '^[0-9]+$'),
+    ADD CONSTRAINT chk_productos_precios_no_negativos CHECK (precio_referencia >= 0 AND precio >= 0),
+    ADD CONSTRAINT chk_productos_stock_no_negativo CHECK (stock_actual >= 0 AND stock_minimo >= 0);
+
+ALTER TABLE proveedores
+    ADD CONSTRAINT chk_proveedores_cuit_formato CHECK (cuit IS NULL OR cuit REGEXP '^[0-9]{2}-?[0-9]{8}-?[0-9]{1}$');
+
+ALTER TABLE stock_por_almacen
+    ADD CONSTRAINT chk_stock_almacen_no_negativo CHECK (stock_actual >= 0 AND stock_reservado >= 0);
